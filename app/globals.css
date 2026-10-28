@@ -1,0 +1,262 @@
+:root {
+  --bg: #05060f;
+  --fg: #f1f0ff;
+  --muted: #b3b2d0;
+  /* Bề mặt đặc, tách nhau bằng bậc độ sáng thay cho kính mờ: backdrop-filter trên canvas WebGL rất tốn GPU */
+  --surface: rgba(11, 13, 28, 0.9);
+  --surface-strong: #0b0d1c;
+  --surface-2: #161a31;
+  --surface-3: #20253f;
+  --accent: #8fa8ff;
+  --radius: 16px;
+  font-family: "Be Vietnam Pro", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+  -webkit-font-smoothing: antialiased;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); overflow: hidden; }
+button { font: inherit; color: inherit; cursor: pointer; }
+a { color: inherit; }
+
+.app { position: fixed; inset: 0; user-select: none; }
+.world { position: absolute; inset: 0; }
+/* Làm tối 4 góc → mắt tập trung vào giữa màn hình */
+.vignette {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 50%, transparent 60%, rgba(0, 0, 8, 0.6) 100%);
+}
+
+/* Lớp UI trên canvas. Animation chỉ dùng transform/opacity → chạy trên GPU */
+.hud-top, .station-nav, .prompt, .hint, .panel, .dev, .intro { position: absolute; z-index: 2; }
+
+.brand, .chip, .prompt, .panel, .dev, .hint, .progress, .btn.ghost, .intro { background: var(--surface); border: 0; }
+
+/* ---------- Header ---------- */
+.hud-top {
+  top: 16px; left: 16px; right: 16px;
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+  pointer-events: none;
+}
+.hud-top > * { pointer-events: auto; }
+.brand {
+  display: flex; align-items: center; gap: 12px; padding: 8px 16px 8px 8px;
+  border-radius: 999px; text-decoration: none; transition: background 0.2s;
+}
+.brand:hover { background: var(--surface-2); }
+.avatar { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; object-position: 50% 20%; }
+.brand strong { display: block; font-size: 15px; letter-spacing: -0.01em; }
+.brand small { display: block; font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+.hud-right { display: flex; gap: 8px; align-items: center; }
+.progress {
+  position: relative; overflow: hidden; display: flex; gap: 8px; align-items: baseline;
+  padding: 10px 14px; border-radius: 999px; font-size: 12px; color: var(--muted);
+}
+.progress b { color: var(--fg); font-size: 13px; }
+.progress i {
+  position: absolute; left: 0; bottom: 0; height: 2px;
+  background: var(--accent); transition: width 0.5s ease;
+}
+
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 10px 18px; border-radius: 999px;
+  background: var(--c, var(--accent)); color: #0b0c1a; font-weight: 700; font-size: 14px;
+  border: 0; text-decoration: none; transition: transform 0.15s ease, filter 0.15s, background 0.15s;
+}
+.btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
+.btn:active { transform: translateY(0) scale(0.97); }
+.btn:focus-visible, .chip:focus-visible, .planet-label:focus-visible, .close:focus-visible, .brand:focus-visible {
+  outline: 2px solid var(--c, var(--accent)); outline-offset: 3px;
+}
+.btn.ghost { color: var(--fg); font-weight: 600; }
+.btn.ghost:hover { background: var(--surface-3); filter: none; }
+.btn.icon { width: 40px; height: 40px; padding: 0; border-radius: 50%; font-size: 16px; }
+.btn.big { padding: 14px 24px; font-size: 15px; }
+
+/* ---------- Station nav ---------- */
+.station-nav {
+  left: 50%; bottom: 18px; transform: translateX(-50%);
+  display: flex; gap: 8px; max-width: calc(100vw - 32px);
+  overflow-x: auto; scrollbar-width: none; padding: 4px;
+  animation: rise 0.5s 0.1s both cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.chip {
+  flex: none; display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 15px; border-radius: 999px; font-size: 13px; font-weight: 500; white-space: nowrap;
+  transition: border-color 0.2s, transform 0.2s, background 0.2s;
+}
+.chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.chip.seen .dot { box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 30%, transparent); }
+.chip:hover, .chip.active {
+  transform: translateY(-2px);
+  background: color-mix(in srgb, var(--c) 26%, var(--surface-strong));
+}
+
+.prompt {
+  left: 50%; bottom: 82px; transform: translateX(-50%);
+  padding: 11px 20px; border-radius: 999px; font-size: 15px;
+  animation: pop 0.25s ease-out;
+}
+kbd {
+  display: inline-block; min-width: 22px; padding: 2px 6px; margin-right: 4px;
+  border-radius: 6px; background: var(--surface-3);
+  font-size: 12px; font-weight: 600; text-align: center; color: var(--fg);
+}
+
+.hint {
+  left: 16px; bottom: 82px; padding: 12px 14px; border-radius: var(--radius);
+  display: flex; flex-direction: column; gap: 7px; font-size: 13px; color: var(--muted);
+  animation: rise 0.5s 0.2s both cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* ---------- Nhãn hành tinh (CSS2D, nằm trên canvas) ---------- */
+.label-layer { z-index: 1; }
+.planet-label {
+  pointer-events: auto; display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 11px 5px 8px; border-radius: 999px; font: 600 12px "Be Vietnam Pro", system-ui, sans-serif;
+  color: var(--fg); white-space: nowrap; cursor: pointer;
+  background: rgba(8, 10, 26, 0.72); border: 0;
+  transition: opacity 0.4s, transform 0.25s, background 0.25s;
+}
+.planet-label i {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--c);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 25%, transparent);
+}
+.planet-label:hover, .planet-label.active {
+  transform: translateY(-3px) scale(1.06);
+  background: color-mix(in srgb, var(--c) 32%, rgba(8, 10, 26, 0.85));
+}
+.planet-label.dim { opacity: 0.25; }
+.planet-label.focused { opacity: 0; pointer-events: none; }
+.app[data-intro="true"] .label-layer { opacity: 0; }
+.label-layer { transition: opacity 1.2s 1.5s; }
+
+/* ---------- Intro ---------- */
+.intro {
+  left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(600px, calc(100vw - 32px)); padding: 36px 36px 28px; border-radius: 28px;
+  background: rgba(8, 9, 22, 0.86);
+  display: grid; grid-template-columns: 88px 1fr; column-gap: 24px; align-items: center;
+  animation: introIn 0.7s 0.6s both cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.intro-photo { width: 88px; height: 110px; border-radius: 18px; object-fit: cover; grid-row: span 1; }
+.intro h1 { margin: 0; font-size: clamp(34px, 6vw, 52px); line-height: 1; letter-spacing: -0.04em; font-weight: 800; }
+.intro .lead { grid-column: 1 / -1; margin: 22px 0 0; color: var(--fg); line-height: 1.6; font-size: 17px; }
+.intro-actions { grid-column: 1 / -1; display: flex; gap: 10px; margin: 26px 0 18px; flex-wrap: wrap; }
+.intro-hint { grid-column: 1 / -1; margin: 0; font-size: 13px; color: var(--muted); }
+
+/* ---------- Panel ---------- */
+.panel {
+  z-index: 3; top: 16px; right: 16px; bottom: 16px; width: min(420px, calc(100vw - 32px));
+  border-radius: 22px; padding: 30px 26px 22px; overflow-y: auto;
+  background: var(--surface-strong);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+  display: flex; flex-direction: column;
+  animation: slide 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.panel > * { position: relative; flex-shrink: 0; }
+.panel-img {
+  display: block; width: calc(100% + 52px); margin: -30px -26px 22px; aspect-ratio: 16 / 10;
+  object-fit: cover; border-radius: 22px 22px 0 0; background: var(--surface-2);
+}
+.panel-img.portrait { width: 112px; aspect-ratio: 4 / 5; margin: 0 0 20px; border-radius: 18px; object-position: 50% 25%; }
+.panel h2 { margin: 0; padding-right: 36px; font-size: 38px; line-height: 1.05; letter-spacing: -0.035em; font-weight: 800; }
+.panel .sub { margin: 10px 0 18px; font-size: 15px; font-weight: 600; color: var(--c); }
+.panel .desc { margin: 0; line-height: 1.65; color: var(--fg); font-size: 16px; }
+.facts { margin: 20px 0 0; display: grid; gap: 2px; border-radius: 16px; overflow: hidden; }
+.facts div { display: grid; grid-template-columns: 92px 1fr; gap: 12px; padding: 11px 14px; background: var(--surface-2); }
+.facts dt { color: var(--c); font-size: 13px; font-weight: 700; }
+.facts dd { margin: 0; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.highlights { list-style: none; padding: 0; margin: 20px 0 0; display: grid; gap: 10px; }
+.highlights li {
+  position: relative; padding-left: 20px; line-height: 1.55; font-size: 15px; color: var(--fg);
+}
+.highlights li::before {
+  content: ""; position: absolute; left: 2px; top: 9px; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--c);
+}
+.tags { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; margin: 22px 0; }
+.tags li {
+  padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 500;
+  background: color-mix(in srgb, var(--c) 18%, var(--surface-2));
+}
+.links { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 22px; }
+.links .btn.ghost, .panel-nav .btn.ghost { background: var(--surface-2); }
+.panel-nav {
+  margin-top: auto; padding-top: 22px; display: flex; align-items: center; justify-content: space-between;
+  font-size: 13px; color: var(--muted);
+}
+.panel-nav .btn { padding: 8px 12px; font-size: 13px; }
+.close {
+  position: absolute !important; top: 14px; right: 14px; width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(11, 13, 28, 0.7); border: 0; font-size: 20px; line-height: 1; z-index: 1;
+  transition: background 0.2s;
+}
+.close:hover { background: var(--surface-3); }
+
+/* ---------- Dev ---------- */
+.dev {
+  top: 78px; right: 16px; width: 240px; padding: 14px; border-radius: var(--radius);
+  font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.dev h3 { margin: 0 0 10px; font: 600 13px "Be Vietnam Pro", system-ui; }
+.dev dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin: 0 0 10px; }
+.dev dt { color: var(--muted); }
+.dev dd { margin: 0; text-align: right; }
+.dev .good { color: #46e3a5; } .dev .bad { color: #ff6b6b; }
+.dev label { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
+.dev select { background: var(--surface-3); color: var(--fg); border: 0; border-radius: 6px; padding: 4px; font: inherit; }
+.dev .row { display: flex; gap: 6px; }
+.dev .row .btn { padding: 6px 8px; font-size: 12px; flex: 1; }
+.dev .tip { color: var(--muted); margin: 10px 0 0; line-height: 1.5; }
+.dev code { color: #ffe0a0; }
+
+/* ---------- Loader ---------- */
+.loader {
+  position: absolute; inset: 0; z-index: 5; display: grid; place-content: center; justify-items: center;
+  gap: 14px; background: var(--bg); color: var(--muted);
+}
+.spinner {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.12); border-top-color: var(--accent);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pop { from { opacity: 0; transform: translate(-50%, 8px); } }
+@keyframes rise { from { opacity: 0; transform: translate(var(--tx, 0), 12px); } }
+.station-nav { --tx: -50%; }
+/* Panel mở bên phải → thanh hành tinh dạt sang trái, không chui dưới panel */
+@media (min-width: 641px) {
+  .app:not([data-open=""]) .station-nav { --tx: 0; left: 16px; transform: none; max-width: calc(100vw - 468px); }
+}
+@keyframes slide { from { opacity: 0; transform: translateX(28px); } }
+@keyframes introIn { from { opacity: 0; transform: translate(-50%, calc(-50% + 18px)) scale(0.98); } }
+
+/* ---------- Điện thoại ---------- */
+@media (max-width: 640px) {
+  .hint, .progress span { display: none; }
+  .brand small { display: none; }
+  .cv-link { display: none; }
+  .btn, .brand strong { white-space: nowrap; }
+  .app[data-intro="false"] .brand > span { display: none; }
+  .app[data-intro="false"] .brand { padding: 6px; }
+  .panel-img.portrait { width: 76px; margin-bottom: 14px; border-radius: 14px; }
+  .intro { padding: 26px 22px 22px; grid-template-columns: 64px 1fr; column-gap: 16px; }
+  .intro-photo { width: 64px; height: 80px; border-radius: 14px; }
+  .intro .lead { font-size: 16px; }
+  .panel { top: auto; left: 12px; right: 12px; bottom: 12px; width: auto; max-height: 72vh; animation-name: slideUp; }
+  .panel-img:not(.portrait) { aspect-ratio: 16 / 7; }
+  .panel h2 { font-size: 30px; }
+  .dev { top: auto; bottom: 74px; left: 16px; right: 16px; width: auto; }
+  .app:not([data-open=""]) .dev { display: none; }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(28px); } }
+}
+
+/* Tôn trọng "Giảm chuyển động" trên macOS */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition: none !important; }
+}
